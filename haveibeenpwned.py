@@ -10,8 +10,11 @@
 import requests
 import time 
 import argparse
+import os.path
 
 parser = argparse.ArgumentParser(description="Verify if email address has been pwned")
+parser.add_argument('-k', '--api-key', required=True, dest="apiKey",
+                  help="String or file containing HIBP API key")
 parser.add_argument("-a", dest="address",
                   help="Single email address to be checked")
 parser.add_argument("-f", dest="filename",
@@ -35,6 +38,11 @@ ENDC = '\033[0m'
 address = str(args.address)
 filename = str(args.filename)
 lstEmail = ["info@example.com","example@example.com"]
+if os.path.isfile(os.path.expanduser(args.apiKey)):
+    with open(args.apiKey, 'r') as file:
+        apiKey = file.read().replace('\n', '')
+else:
+    apiKey = args.apiKey
 
 def main():
     if address != "None":
@@ -49,9 +57,10 @@ def main():
 
 def checkAddress(email):
     sleep = rate # Reset default acceptable rate
-    check = requests.get("https://" + server + "/api/v2/breachedaccount/" + email + "?includeUnverified=true",
+    check = requests.get("https://" + server + "/api/v3/breachedaccount/" + email + "?includeUnverified=true",
                  proxies = proxies,
-                 verify = sslVerify)
+                 verify = sslVerify,
+                 headers = {'hibp-api-key': apiKey})
     if str(check.status_code) == "404": # The address has not been breached.
         print OKGREEN + "[i] " + email + " has not been breached." + ENDC
         time.sleep(sleep) # sleep so that we don't trigger the rate limit
@@ -68,6 +77,7 @@ def checkAddress(email):
         checkAddress(email) # try again
     else:
         print WARNING + "[!] Something went wrong while checking " + email + ENDC
+        print check
         time.sleep(sleep) # sleep so that we don't trigger the rate limit
         return True
 
